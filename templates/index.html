@@ -329,7 +329,7 @@ function startPosEdit(p){
   document.getElementById('posEditingBanner').style.display = 'flex';
   document.getElementById('posEditingName').textContent = p.position;
   document.getElementById('posSaveBtn').textContent = 'Save Changes';
-  window.scrollTo({top:0,behavior:'smooth'});
+  document.getElementById('posEditingBanner').scrollIntoView({behavior:'smooth', block:'center'});
 }
 function cancelPosEdit(){
   posEditingId = null;
@@ -467,7 +467,7 @@ function startEdit(c){
   document.getElementById('editingName').textContent=c.name;
   document.getElementById('saveBtn').textContent='Save Changes';
   switchTab('standard');
-  window.scrollTo({top:0,behavior:'smooth'});
+  document.getElementById('editingBanner').scrollIntoView({behavior:'smooth', block:'center'});
 }
 function cancelEdit(){
   editingId=null;

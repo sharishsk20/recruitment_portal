@@ -100,13 +100,56 @@ import re
 
 KNOWN_ROLES = ["Manager – Inside Sales", "Manager – Sales", "QSA"]
 KNOWN_LOCATIONS = ["Gurgaon", "Gurugram", "Mumbai", "Bangalore", "Bengaluru", "Delhi",
-                   "Chennai", "Pune", "Hyderabad", "Noida", "Kolkata"]
+                   "Chennai", "Pune", "Hyderabad", "Noida", "Kolkata", "Ahmedabad",
+                   "Jaipur", "Chandigarh", "Kochi", "Cochin", "Coimbatore", "Indore",
+                   "Lucknow", "Bhopal", "Nagpur", "Vadodara", "Remote"]
+
+# Words that can never be a candidate name, used to keep the name-extraction
+# heuristic below from mistaking a role/location/keyword phrase for a name.
+_NAME_STOPWORDS = {
+    "manager", "inside", "sales", "qsa", "iso", "linkedin", "naukri", "sf",
+    "referral", "referred", "joined", "rejected", "declined", "hold", "onhold",
+    "screening", "final", "round", "first", "1st", "2nd", "offer", "stage",
+    "years", "year", "yrs", "yr", "yoe", "lead", "auditor", "fresher", "exp",
+    "experience", "shortlisted", "selected", "technical", "hr", "walkin",
+    "indeed", "monster", "employee", "internal", "reference", "candidate",
+    "profile", "resume", "applied", "application",
+} | {loc.lower() for loc in KNOWN_LOCATIONS}
 
 
 def _empty_candidate():
     return {"name": "", "role": "Other", "location": "", "experience": 0,
             "certifications": "None listed", "iso_certified": "No", "source": "Other",
             "linkedin_sourced": "No", "stage": "—", "status": "In Process", "notes": ""}
+
+
+def _extract_name(line, chunks):
+    """Best-effort candidate name extraction.
+
+    Preferred signal: a run of 2-4 Title-Case words (e.g. "Rohit Verma"),
+    since that's what a human name looks like regardless of where it sits
+    in the line. Falls back to the old "first non-keyword chunk" heuristic
+    for lines that are all lowercase or otherwise don't have a clean
+    Title-Case run.
+    """
+    for m in re.finditer(r'\b[A-Z][a-zA-Z.]+(?:\s+[A-Z][a-zA-Z.]+){1,3}\b', line):
+        words = m.group(0).split()
+        if all(w.strip('.').lower() not in _NAME_STOPWORDS for w in words) \
+           and not any(m.group(0).lower() == r.lower() for r in KNOWN_ROLES):
+            return m.group(0)
+
+    skip_pattern = re.compile(
+        r'^(iso|linkedin|naukri|sf|referral|joined|reject|declin|hold|screening|'
+        r'final round|1st round|first round|offer|years?|yrs?|\d+(\.\d+)?\s*(years?|yrs?)?)$',
+        re.I)
+    for c in chunks:
+        if skip_pattern.match(c) or any(r.lower() == c.lower() for r in KNOWN_ROLES) \
+           or any(loc.lower() == c.lower() for loc in KNOWN_LOCATIONS):
+            continue
+        if re.search(r'\d', c) and len(c) < 6:
+            continue
+        return c
+    return chunks[0] if chunks else "Unnamed Candidate"
 
 
 def parse_candidate_line(line):
@@ -124,48 +167,57 @@ def parse_candidate_line(line):
             result["role"] = "Manager – Inside Sales"
         elif "sales" in low:
             result["role"] = "Manager – Sales"
-        elif "qsa" in low:
+        elif re.search(r'\bqsa\b|lead auditor', low):
             result["role"] = "QSA"
 
     # Location
     for loc in KNOWN_LOCATIONS:
-        if loc.lower() in low:
-            result["location"] = "Bangalore" if loc == "Bengaluru" else ("Gurgaon" if loc == "Gurugram" else loc)
+        if re.search(r'\b' + re.escape(loc.lower()) + r'\b', low):
+            result["location"] = "Bangalore" if loc == "Bengaluru" else \
+                ("Gurgaon" if loc == "Gurugram" else ("Kochi" if loc == "Cochin" else loc))
             break
 
-    # Experience (years)
-    m = re.search(r'(\d+(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?)\b', line, re.I)
-    if m:
-        result["experience"] = float(m.group(1))
+    # Experience (years) — handles "5 years", "5+ yrs", "3-5 years" (takes
+    # the lower bound), "fresher"/"entry level" (0), and bare "X yoe"
+    if re.search(r'\bfresher\b|\bentry[\s-]level\b|\b0\s*(?:years?|yrs?)\b', low):
+        result["experience"] = 0
+    else:
+        m = re.search(r'(\d+(?:\.\d+)?)\s*(?:-|to)\s*\d+(?:\.\d+)?\s*(?:years?|yrs?|yoe)\b', line, re.I)
+        if not m:
+            m = re.search(r'(\d+(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?|yoe)\b', line, re.I)
+        if m:
+            result["experience"] = float(m.group(1))
 
-    # ISO certifications
+    # ISO certifications (and other common industry certs, kept in the same
+    # field since the DB has no separate column for non-ISO certs)
     iso_matches = re.findall(r'ISO\s?\d{3,6}(?:[:\-]?\d{0,4})?(?:\s+(?:lead\s+auditor|qsa))?', line, re.I)
-    if iso_matches:
-        seen = []
-        for im in iso_matches:
-            v = re.sub(r'\s+', ' ', im.strip())
-            if v.lower() not in [s.lower() for s in seen]:
-                seen.append(v)
+    other_certs = re.findall(r'\b(CISA|CISSP|CISM|PMP|Six\s?Sigma(?:\s+(?:Green|Black)\s+Belt)?|CEH)\b', line, re.I)
+    seen = []
+    for im in iso_matches + other_certs:
+        v = re.sub(r'\s+', ' ', im.strip())
+        if v.lower() not in [s.lower() for s in seen]:
+            seen.append(v)
+    if seen:
         result["certifications"] = ", ".join(seen)
-        result["iso_certified"] = "Yes"
+        result["iso_certified"] = "Yes" if iso_matches else result["iso_certified"]
 
     # Source / LinkedIn
     if "linkedin" in low:
         result["source"] = "LinkedIn"
         result["linkedin_sourced"] = "Yes"
-    elif re.search(r'\bsf\b|naukri|successfactors', low):
+    elif re.search(r'\bsf\b|naukri|successfactors|indeed|monster', low):
         result["source"] = "Naukri/SF"
-    elif "referral" in low or "referred" in low:
+    elif re.search(r'referral|referred|employee reference|internal reference', low):
         result["source"] = "Referral"
 
     # Interview stage
-    if "final round" in low:
+    if "final round" in low or re.search(r'\bl3\b', low):
         result["stage"] = "Final Round"
-    elif re.search(r'1st round|first round', low):
+    elif re.search(r'1st round|first round|technical round|tech round|\bl1\b', low):
         result["stage"] = "1st Round Interview"
-    elif "offer" in low:
+    elif re.search(r'\boffer\b|selected', low):
         result["stage"] = "Offer Stage"
-    elif "screening" in low:
+    elif re.search(r'screening|shortlisted|hr round|\bl2\b', low):
         result["stage"] = "Screening"
 
     # Status
@@ -173,29 +225,16 @@ def parse_candidate_line(line):
         result["status"] = "Joined"
     elif re.search(r'reject', low):
         result["status"] = "Rejected"
-    elif re.search(r'declin', low):
+    elif re.search(r'declin|withdr|backed out', low):
         result["status"] = "Offer Declined"
     elif "hold" in low:
         result["status"] = "On Hold"
     else:
         result["status"] = "In Process"
 
-    # Name: first comma/dash-separated chunk that isn't a recognized keyword/number
+    # Name
     chunks = [c.strip() for c in re.split(r'[-–—|,;]', line) if c.strip()]
-    skip_pattern = re.compile(
-        r'^(iso|linkedin|naukri|sf|referral|joined|reject|declin|hold|screening|'
-        r'final round|1st round|first round|offer|years?|yrs?|\d+(\.\d+)?\s*(years?|yrs?)?)$',
-        re.I)
-    name = ""
-    for c in chunks:
-        if skip_pattern.match(c) or any(r.lower() == c.lower() for r in KNOWN_ROLES) \
-           or any(loc.lower() == c.lower() for loc in KNOWN_LOCATIONS):
-            continue
-        if re.search(r'\d', c) and len(c) < 6:
-            continue
-        name = c
-        break
-    result["name"] = name if name else (chunks[0] if chunks else "Unnamed Candidate")
+    result["name"] = _extract_name(line, chunks)
     result["_raw"] = line
     return result
 
