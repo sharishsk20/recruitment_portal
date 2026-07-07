@@ -309,9 +309,11 @@ function showInlineError(wrapId, message){
 }
 
 // ---- Positions ----
+let lastPositionRows = [];
 async function loadPositions(){
   const res = await fetch('/api/positions');
   const rows = await res.json();
+  lastPositionRows = rows;
   const tb = document.getElementById('posTbody');
   if(rows.length===0){
     tb.innerHTML = `<tr><td colspan="13" class="empty">No positions added yet.</td></tr>`;
@@ -330,7 +332,7 @@ async function loadPositions(){
       <td>${esc(p.recruiter_experience)}</td>
       <td>${esc(p.notes)}</td>
       <td>
-        <button class="rowbtn edit" onclick='startPosEdit(${JSON.stringify(p)})' title="Edit">&#9998;</button>
+        <button class="rowbtn edit" onclick="startPosEdit(lastPositionRows[${n}])" title="Edit">&#9998;</button>
         <button class="rowbtn del" onclick="delPosition(${p.id})" title="Remove">&times;</button>
       </td>
     </tr>`).join('');
@@ -388,6 +390,7 @@ function startPosEdit(p){
   document.getElementById('posEditingBanner').style.display = 'flex';
   document.getElementById('posEditingName').textContent = p.position;
   document.getElementById('posSaveBtn').textContent = 'Save Changes';
+  switchPosTab('standard');
   document.getElementById('posEditingBanner').scrollIntoView({behavior:'smooth', block:'center'});
 }
 function cancelPosEdit(){
@@ -419,9 +422,11 @@ function qs(){
   return p.toString();
 }
 
+let lastCandidateRows = [];
 async function load(){
   const res=await fetch('/api/candidates?'+qs());
   const rows=await res.json();
+  lastCandidateRows = rows;
   const tb=document.getElementById('tbody');
   if(rows.length===0){
     tb.innerHTML=`<tr><td colspan="13" class="empty">No candidates match. Add one above or adjust filters.</td></tr>`;
@@ -440,7 +445,7 @@ async function load(){
       <td>${pill(c.status)}</td>
       <td>${esc(c.notes)}</td>
       <td>
-        <button class="rowbtn edit" onclick='startEdit(${JSON.stringify(c)})' title="Edit">&#9998;</button>
+        <button class="rowbtn edit" onclick="startEdit(lastCandidateRows[${n}])" title="Edit">&#9998;</button>
         <button class="rowbtn del" onclick="del(${c.id})" title="Remove">&times;</button>
       </td>
     </tr>`).join('');
@@ -610,7 +615,14 @@ function removePreviewRow(kind,idx){
 async function confirmPreview(kind){
   const arr = kind==='nlp' ? nlpPreviewData : importPreviewData;
   if(!arr.length)return;
-  await fetch('/api/bulk_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidates:arr})});
+  const wrapId = kind==='nlp'?'nlpPreviewWrap':'importPreviewWrap';
+  const res = await fetch('/api/bulk_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidates:arr})});
+  if(!res.ok){
+    renderPreview(arr, wrapId, kind);
+    document.getElementById(wrapId).insertAdjacentHTML('afterbegin',
+      '<div class="inline-error">Save failed — check the fields (e.g. Experience must contain a number) and try again.</div>');
+    return;
+  }
   discardPreview(kind);
   if(kind==='nlp') document.getElementById('nlp_text').value='';
   if(kind==='import') document.getElementById('file_input').value='';
@@ -678,7 +690,13 @@ function removePosPreviewRow(idx){
 
 async function confirmPosPreview(){
   if(!posNlpPreviewData.length)return;
-  await fetch('/api/bulk_add_positions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({positions:posNlpPreviewData})});
+  const res = await fetch('/api/bulk_add_positions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({positions:posNlpPreviewData})});
+  if(!res.ok){
+    renderPosPreview(posNlpPreviewData);
+    document.getElementById('posNlpPreviewWrap').insertAdjacentHTML('afterbegin',
+      '<div class="inline-error">Save failed — check the fields and try again.</div>');
+    return;
+  }
   discardPosPreview();
   document.getElementById('pos_nlp_text').value='';
   loadPositions();

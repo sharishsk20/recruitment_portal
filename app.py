@@ -79,6 +79,18 @@ def init_db():
 init_db()
 
 
+def _safe_experience(v):
+    """Best-effort numeric parse for the experience field; never raises.
+
+    Preview-table cells for experience are free-text inputs (edited by hand
+    after NLP/import parsing), so this has to tolerate stray non-numeric
+    input like "5-6 yrs" (takes the first number) instead of crashing the
+    whole save with a ValueError.
+    """
+    m = re.search(r'\d+(?:\.\d+)?', str(v or ""))
+    return float(m.group(0)) if m else 0.0
+
+
 def query(filters):
     sql = "SELECT * FROM candidates WHERE 1=1"
     params = []
@@ -336,11 +348,12 @@ def parse_position_line(line):
     if m:
         result["days"] = re.sub(r'\s+', ' ', m.group(0).strip())
 
-    # Applications / views
-    result["sf_applications"] = _num_near(r'sf applications?|successfactors applications?|sf', line)
-    result["linkedin_views"] = _num_near(r'linkedin views?|views? on linkedin', line)
+    # Applications / views (word-bounded so "sf"/"views" can't match inside
+    # an unrelated word like "satisfactory" or "reviews")
+    result["sf_applications"] = _num_near(r'\bsf\b\s*applications?|\bsuccessfactors\b\s*applications?|\bsf\b', line)
+    result["linkedin_views"] = _num_near(r'\blinkedin\b\s*views?\b|\bviews?\b\s*on\s*linkedin\b', line)
     result["linkedin_applications"] = _num_near(
-        r'linkedin applications?|linkedin apps?|applications? (?:on|via) linkedin', line)
+        r'\blinkedin\b\s*applications?\b|\blinkedin\b\s*apps?\b|\bapplications?\b\s*(?:on|via)\s*linkedin\b', line)
 
     # Recruiter hiring experience
     if re.search(r'\bsmooth\b', low):
@@ -389,7 +402,7 @@ def add_candidate():
         (name,role,location,experience,certifications,iso_certified,source,linkedin_sourced,stage,status,notes)
         VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
         (d.get("name", "").strip(), d.get("role", ""), d.get("location", ""),
-         float(d.get("experience") or 0), d.get("certifications", "") or "None listed",
+         _safe_experience(d.get("experience")), d.get("certifications", "") or "None listed",
          d.get("iso_certified", "No"), d.get("source", ""), d.get("linkedin_sourced", "No"),
          d.get("stage", ""), d.get("status", "In Process"), d.get("notes", "")))
     db().commit()
@@ -405,7 +418,7 @@ def update_candidate(cid):
         """UPDATE candidates SET name=?, role=?, location=?, experience=?, certifications=?,
            iso_certified=?, source=?, linkedin_sourced=?, stage=?, status=?, notes=? WHERE id=?""",
         (d.get("name", "").strip(), d.get("role", ""), d.get("location", ""),
-         float(d.get("experience") or 0), d.get("certifications", "") or "None listed",
+         _safe_experience(d.get("experience")), d.get("certifications", "") or "None listed",
          d.get("iso_certified", "No"), d.get("source", ""), d.get("linkedin_sourced", "No"),
          d.get("stage", ""), d.get("status", "In Process"), d.get("notes", ""), cid))
     db().commit()
@@ -527,7 +540,7 @@ def bulk_add():
             (name,role,location,experience,certifications,iso_certified,source,linkedin_sourced,stage,status,notes)
             VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (name, c.get("role", ""), c.get("location", ""),
-             float(c.get("experience") or 0), c.get("certifications", "") or "None listed",
+             _safe_experience(c.get("experience")), c.get("certifications", "") or "None listed",
              c.get("iso_certified", "No"), c.get("source", ""), c.get("linkedin_sourced", "No"),
              c.get("stage", ""), c.get("status", "In Process"), c.get("notes", "")))
         added += 1
