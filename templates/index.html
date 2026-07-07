@@ -85,6 +85,14 @@
   .drop{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);
     font-size:13px;cursor:pointer}
   .drop:hover{border-color:var(--tuv-blue);background:var(--tuv-blue-light)}
+  .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;
+    align-items:center;justify-content:center;z-index:100}
+  .confirm-box{background:#fff;border-radius:8px;padding:20px 22px;max-width:340px;width:90%;
+    box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  .confirm-box p{font-size:14px;color:var(--grey);margin-bottom:16px;line-height:1.4}
+  .confirm-actions{display:flex;justify-content:flex-end;gap:8px}
+  .inline-error{background:var(--red-bg);color:var(--red);border:1px solid var(--red);
+    border-radius:6px;padding:8px 12px;font-size:13px;margin-bottom:10px}
   @media(max-width:640px){.wrap{padding:14px}header h1{font-size:14px}.charts{grid-template-columns:1fr}}
 </style>
 </head>
@@ -103,8 +111,6 @@
 <div class="accentbar"></div>
 
 <div class="wrap">
-  <div class="stats" id="stats"></div>
-
   <div class="card">
     <h2>Overview</h2>
     <div class="charts">
@@ -242,12 +248,39 @@ Neha Gupta, Manager Sales, Gurgaon, 8 yrs, ISO 9001 Lead Auditor, Naukri, final 
   </div>
 </div>
 
+<div id="confirmOverlay" class="confirm-overlay" style="display:none">
+  <div class="confirm-box">
+    <p id="confirmMsg"></p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="_confirmResolve(false)">Cancel</button>
+      <button class="btn btn-warn" onclick="_confirmResolve(true)">Remove</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let editingId = null;
 let posEditingId = null;
 let nlpPreviewData = [];
 let importPreviewData = [];
 let chartStatus, chartRole;
+let _confirmResolve = ()=>{};
+
+function confirmDialog(message){
+  document.getElementById('confirmMsg').textContent = message;
+  document.getElementById('confirmOverlay').style.display = 'flex';
+  return new Promise(resolve=>{
+    _confirmResolve = ok=>{
+      document.getElementById('confirmOverlay').style.display = 'none';
+      resolve(ok);
+    };
+  });
+}
+
+function showInlineError(wrapId, message){
+  document.getElementById(wrapId).innerHTML =
+    `<div class="inline-error">${message}</div>`;
+}
 
 // ---- Positions ----
 async function loadPositions(){
@@ -339,7 +372,7 @@ function cancelPosEdit(){
 }
 async function delPosition(id){ await fetch('/api/positions/'+id,{method:'DELETE'}); loadPositions(); }
 async function seedPositions(){ await fetch('/api/seed_positions',{method:'POST'}); loadPositions(); }
-async function clearAllPositions(){ if(confirm('Remove all positions?')){ await fetch('/api/clear_positions',{method:'POST'}); loadPositions(); } }
+async function clearAllPositions(){ if(await confirmDialog('Remove all positions? This cannot be undone.')){ await fetch('/api/clear_positions',{method:'POST'}); loadPositions(); } }
 
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
@@ -386,14 +419,6 @@ async function load(){
 
 async function stats(){
   const all=await (await fetch('/api/candidates')).json();
-  const iso=all.filter(c=>c.iso_certified==='Yes').length;
-  const joined=all.filter(c=>c.status==='Joined').length;
-  const proc=all.filter(c=>c.status==='In Process').length;
-  document.getElementById('stats').innerHTML=`
-    <div class="stat"><div class="n">${all.length}</div><div class="l">Total Candidates</div></div>
-    <div class="stat"><div class="n">${iso}</div><div class="l">ISO Certified</div></div>
-    <div class="stat"><div class="n">${joined}</div><div class="l">Joined</div></div>
-    <div class="stat"><div class="n">${proc}</div><div class="l">In Process</div></div>`;
   renderCharts(all);
 }
 
@@ -478,7 +503,7 @@ function cancelEdit(){
 
 async function del(id){await fetch('/api/candidates/'+id,{method:'DELETE'});load();}
 async function seed(){await fetch('/api/seed',{method:'POST'});load();}
-async function clearAll(){if(confirm('Remove all candidates?')){await fetch('/api/clear',{method:'POST'});load();}}
+async function clearAll(){if(await confirmDialog('Remove all candidates? This cannot be undone.')){await fetch('/api/clear',{method:'POST'});load();}}
 function exportExcel(){window.location='/export?'+qs();}
 
 async function parseNlp(){
@@ -486,7 +511,7 @@ async function parseNlp(){
   if(!text.trim())return;
   const res=await fetch('/api/parse_nlp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
   const data=await res.json();
-  if(data.error){alert(data.error);return;}
+  if(data.error){showInlineError('nlpPreviewWrap',data.error);return;}
   nlpPreviewData=data;
   renderPreview(data,'nlpPreviewWrap','nlp');
 }
@@ -498,7 +523,7 @@ function handleFile(file){
   fetch('/api/import_file',{method:'POST',body:fd})
     .then(r=>r.json())
     .then(data=>{
-      if(data.error){alert(data.error);return;}
+      if(data.error){showInlineError('importPreviewWrap',data.error);return;}
       importPreviewData=data;
       renderPreview(data,'importPreviewWrap','import');
     });
