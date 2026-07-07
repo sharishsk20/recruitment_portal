@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.env
+.venv
+ENV/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Excel exports / temporary data files
+*.xlsx
+
+# Claude / IDE settings
+.claude/
+.idea/
+.vscode/

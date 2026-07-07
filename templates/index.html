@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TÜV SÜD · Recruitment Portal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --tuv-blue:#005AA0; --tuv-blue-dark:#003A70; --tuv-blue-light:#E6F0F7;
+    --grey:#53565A; --grey-light:#F2F4F6; --line:#DDE2E6; --muted:#6B7280;
+    --green:#1E7A34; --green-bg:#DCFCE7; --blue-bg:#DBEAFE;
+    --red:#C0392B; --red-bg:#FDE8E6; --amber:#B7791F; --amber-bg:#FEF3C7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--grey-light);color:#1a1a1a;line-height:1.45}
+  .mono{font-family:ui-monospace,"Roboto Mono",Menlo,Consolas,monospace}
+  header{background:var(--tuv-blue-dark);color:#fff;padding:0}
+  .hbar{max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;
+    justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .octagon{width:38px;height:38px;background:#fff;color:var(--tuv-blue-dark);
+    clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px}
+  header h1{font-size:17px;font-weight:700;letter-spacing:.3px}
+  header .sub{font-size:11px;color:#AFC7DB;letter-spacing:2px;text-transform:uppercase}
+  .accentbar{height:4px;background:var(--tuv-blue);max-width:100%}
+  .wrap{max-width:1200px;margin:0 auto;padding:24px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:20px;margin-bottom:20px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--tuv-blue-dark);
+    margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--tuv-blue);display:inline-block}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  label{display:block;font-size:11px;font-weight:600;color:var(--grey);
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;
+    font-size:14px;background:#fff;font-family:inherit}
+  textarea{font-family:ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;font-size:13px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--tuv-blue);
+    box-shadow:0 0 0 3px rgba(0,90,160,.14)}
+  .btn{background:var(--tuv-blue);color:#fff;border:none;padding:10px 20px;border-radius:6px;
+    font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+  .btn:hover{background:var(--tuv-blue-dark)}
+  .btn:active{transform:translateY(1px)}
+  .btn-ghost{background:#fff;color:var(--tuv-blue-dark);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--grey-light)}
+  .btn-warn{background:#fff;color:var(--red);border:1px solid var(--red-bg)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:center}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    border-left:4px solid var(--tuv-blue)}
+  .stat .n{font-size:26px;font-weight:800;color:var(--tuv-blue-dark)}
+  .stat .l{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px}
+  .filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:var(--tuv-blue);color:#fff;padding:10px 8px;text-align:left;font-size:11px;
+    text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0}
+  td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tr:hover td{background:var(--tuv-blue-light)}
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+  .pill{display:inline-block;padding:3px 9px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
+  .p-joined{background:var(--green-bg);color:var(--green)}
+  .p-process{background:var(--blue-bg);color:var(--tuv-blue)}
+  .p-rej{background:var(--red-bg);color:var(--red)}
+  .p-hold{background:var(--amber-bg);color:var(--amber)}
+  .iso-y{color:var(--green);font-weight:700}
+  .iso-n{color:var(--muted)}
+  .rowbtn{cursor:pointer;font-weight:700;border:none;background:none;font-size:14px;margin:0 3px}
+  .del{color:var(--red)} .edit{color:var(--tuv-blue)}
+  .empty{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+  .count{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+  .tab{padding:9px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
+    border-bottom:2px solid transparent;user-select:none}
+  .tab.active{color:var(--tuv-blue-dark);border-bottom-color:var(--tuv-blue)}
+  .tabpanel{display:none} .tabpanel.active{display:block}
+  .hint{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5}
+  .hint b{color:var(--grey)}
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .chartbox{position:relative;height:260px}
+  .editing-banner{background:var(--tuv-blue-light);border:1px solid var(--tuv-blue);border-radius:6px;
+    padding:8px 12px;font-size:13px;color:var(--tuv-blue-dark);margin-bottom:14px;display:flex;
+    justify-content:space-between;align-items:center}
+  .preview-table td,.preview-table th{font-size:12px;padding:6px}
+  .drop{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);
+    font-size:13px;cursor:pointer}
+  .drop:hover{border-color:var(--tuv-blue);background:var(--tuv-blue-light)}
+  @media(max-width:640px){.wrap{padding:14px}header h1{font-size:14px}.charts{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hbar">
+    <div class="brand">
+      <div class="octagon">TÜV</div>
+      <div>
+        <h1>TÜV SÜD · Recruitment Portal</h1>
+        <div class="sub">Candidate Intake &amp; Export</div>
+      </div>
+    </div>
+  </div>
+</header>
+<div class="accentbar"></div>
+
+<div class="wrap">
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <h2>Overview</h2>
+    <div class="charts">
+      <div class="chartbox"><canvas id="chartStatus"></canvas></div>
+      <div class="chartbox"><canvas id="chartRole"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Positions</h2>
+    <div id="posEditingBanner" class="editing-banner" style="display:none">
+      <span>Editing: <b id="posEditingName"></b></span>
+      <button class="btn-ghost btn" style="padding:4px 10px;font-size:12px" onclick="cancelPosEdit()">Cancel</button>
+    </div>
+    <div class="grid">
+      <div><label>Position / Role</label><input id="p_position" placeholder="e.g. QSA"></div>
+      <div><label>Location</label><input id="p_location" placeholder="City"></div>
+      <div><label>Status</label>
+        <select id="p_status"><option>Open (Sourcing)</option><option>Interviews in Progress</option><option>Yet to Join</option><option>Joined</option><option>On Hold</option><option>Closed – No Hire</option></select></div>
+      <div><label>Date Opened</label><input id="p_date_opened" placeholder="e.g. 10-Feb-2026 or Feb 2026"></div>
+      <div><label>Date Closed / DOJ</label><input id="p_date_closed" placeholder="e.g. 11-May-2026 or Open"></div>
+      <div><label>No. of Days</label><input id="p_days" placeholder="e.g. 77 or ~7 months"></div>
+      <div><label>SF Applications</label><input id="p_sf_applications" placeholder="e.g. 47"></div>
+      <div><label>LinkedIn Views</label><input id="p_linkedin_views" placeholder="e.g. 1483 or Not tracked"></div>
+      <div><label>LinkedIn Applications</label><input id="p_linkedin_applications" placeholder="e.g. 266 or N/A"></div>
+      <div><label>Recruiter Hiring Experience</label><input id="p_recruiter_experience" placeholder="e.g. Smooth"></div>
+      <div style="grid-column:1/-1"><label>Sourcing Notes / Suggestions</label><input id="p_notes" placeholder="Optional notes"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="posSaveBtn" onclick="savePosition()">Add Position</button>
+      <button class="btn btn-ghost" onclick="clearPosForm()">Clear</button>
+    </div>
+
+    <div class="table-scroll" style="margin-top:18px">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Position</th><th>Loc</th><th>Status</th><th>Opened</th><th>Closed/DOJ</th>
+          <th>Days</th><th>SF</th><th>LI Views</th><th>LI Apps</th><th>Recruiter Exp.</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody id="posTbody"></tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="seedPositions()">Load Sample Positions</button>
+      <button class="btn btn-warn" onclick="clearAllPositions()">Clear All Positions</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Add Candidates</h2>
+    <div class="tabs">
+      <div class="tab active" data-tab="standard" onclick="switchTab('standard')">Standard</div>
+      <div class="tab" data-tab="nlp" onclick="switchTab('nlp')">Natural Language</div>
+      <div class="tab" data-tab="import" onclick="switchTab('import')">Excel / CSV Import</div>
+    </div>
+
+    <div class="tabpanel active" id="panel-standard">
+      <div id="editingBanner" class="editing-banner" style="display:none">
+        <span>Editing: <b id="editingName"></b></span>
+        <button class="btn-ghost btn" style="padding:4px 10px;font-size:12px" onclick="cancelEdit()">Cancel</button>
+      </div>
+      <div class="grid">
+        <div><label>Candidate Name</label><input id="f_name" placeholder="Full name"></div>
+        <div><label>Role Applied For</label>
+          <select id="f_role"><option>Manager – Sales</option><option>Manager – Inside Sales</option><option>QSA</option><option>Other</option></select></div>
+        <div><label>Location</label><input id="f_location" placeholder="City"></div>
+        <div><label>Experience (Yrs)</label><input id="f_experience" type="number" min="0" step="0.5" placeholder="0"></div>
+        <div><label>Certifications</label><input id="f_certifications" placeholder="e.g. ISO 9001, ISO 27001"></div>
+        <div><label>ISO Certified</label><select id="f_iso_certified"><option>Yes</option><option>No</option></select></div>
+        <div><label>Source</label><select id="f_source"><option>LinkedIn</option><option>Naukri/SF</option><option>Referral</option><option>Other</option></select></div>
+        <div><label>LinkedIn Sourced</label><select id="f_linkedin_sourced"><option>Yes</option><option>No</option></select></div>
+        <div><label>Interview Stage</label><select id="f_stage"><option>Screening</option><option>1st Round Interview</option><option>Final Round</option><option>Offer Stage</option><option>—</option></select></div>
+        <div><label>Status</label><select id="f_status"><option>In Process</option><option>Joined</option><option>Rejected</option><option>Offer Declined</option><option>On Hold</option></select></div>
+        <div style="grid-column:1/-1"><label>Recruiter Notes</label><input id="f_notes" placeholder="Optional notes"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="saveBtn" onclick="saveCandidate()">Add Candidate</button>
+        <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="panel-nlp">
+      <div class="hint">
+        Paste one candidate per line, in any order — e.g. <b>"Rohit Verma - QSA - Mumbai - 6 years - ISO 9001 - LinkedIn - final round"</b>.
+        This is <b>rule-based parsing</b> (keyword/regex matching), not true AI understanding — always check the preview before confirming.
+      </div>
+      <textarea id="nlp_text" rows="6" placeholder="Rohit Verma - QSA - Mumbai - 6 years - ISO 9001 - sourced via LinkedIn - 1st round interview
+Neha Gupta, Manager Sales, Gurgaon, 8 yrs, ISO 9001 Lead Auditor, Naukri, final round"></textarea>
+      <div class="actions">
+        <button class="btn" onclick="parseNlp()">Parse Text</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('nlp_text').value=''">Clear</button>
+      </div>
+      <div id="nlpPreviewWrap"></div>
+    </div>
+
+    <div class="tabpanel" id="panel-import">
+      <div class="hint">
+        Upload a <b>.xlsx</b> or <b>.csv</b> file. Column headers are matched flexibly
+        (e.g. "Candidate Name", "Name", "Role Applied For" all work). Review the preview before confirming.
+      </div>
+      <div class="drop" onclick="document.getElementById('file_input').click()">
+        Click to choose a file, or drag one here
+      </div>
+      <input type="file" id="file_input" accept=".xlsx,.csv" style="display:none" onchange="handleFile(this.files[0])">
+      <div id="importPreviewWrap"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Candidates</h2>
+    <div class="filters">
+      <div><label>Search Name/Cert</label><input id="q_text" oninput="load()" placeholder="Type to search"></div>
+      <div><label>Role</label><select id="q_role" onchange="load()"><option value="">All</option><option>Manager – Sales</option><option>Manager – Inside Sales</option><option>QSA</option><option>Other</option></select></div>
+      <div><label>ISO Certified</label><select id="q_iso" onchange="load()"><option value="">All</option><option>Yes</option><option>No</option></select></div>
+      <div><label>Min Experience</label><input id="q_min_exp" type="number" min="0" step="0.5" oninput="load()" placeholder="0"></div>
+      <div><label>Source</label><select id="q_source" onchange="load()"><option value="">All</option><option>LinkedIn</option><option>Naukri/SF</option><option>Referral</option><option>Other</option></select></div>
+      <div><label>LinkedIn Sourced</label><select id="q_linkedin_sourced" onchange="load()"><option value="">All</option><option>Yes</option><option>No</option></select></div>
+      <div><label>Status</label><select id="q_status" onchange="load()"><option value="">All</option><option>In Process</option><option>Joined</option><option>Rejected</option><option>Offer Declined</option><option>On Hold</option></select></div>
+    </div>
+    <div class="count" id="count"></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Name</th><th>Role</th><th>Loc</th><th>Exp</th><th>Certifications</th>
+          <th>ISO</th><th>Source</th><th>LI Sourced</th><th>Stage</th><th>Status</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="exportExcel()">⬇ Export to Excel</button>
+      <button class="btn btn-ghost" onclick="seed()">Load Sample Data</button>
+      <button class="btn btn-warn" onclick="clearAll()">Clear All</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let editingId = null;
+let posEditingId = null;
+let nlpPreviewData = [];
+let importPreviewData = [];
+let chartStatus, chartRole;
+
+// ---- Positions ----
+async function loadPositions(){
+  const res = await fetch('/api/positions');
+  const rows = await res.json();
+  const tb = document.getElementById('posTbody');
+  if(rows.length===0){
+    tb.innerHTML = `<tr><td colspan="13" class="empty">No positions added yet.</td></tr>`;
+  } else {
+    tb.innerHTML = rows.map((p,n)=>`<tr>
+      <td class="mono">${n+1}</td>
+      <td><b>${esc(p.position)}</b></td>
+      <td>${esc(p.location)}</td>
+      <td>${esc(p.status)}</td>
+      <td>${esc(p.date_opened)}</td>
+      <td>${esc(p.date_closed)}</td>
+      <td>${esc(p.days)}</td>
+      <td>${esc(p.sf_applications)}</td>
+      <td>${esc(p.linkedin_views)}</td>
+      <td>${esc(p.linkedin_applications)}</td>
+      <td>${esc(p.recruiter_experience)}</td>
+      <td>${esc(p.notes)}</td>
+      <td>
+        <button class="rowbtn edit" onclick='startPosEdit(${JSON.stringify(p)})' title="Edit">&#9998;</button>
+        <button class="rowbtn del" onclick="delPosition(${p.id})" title="Remove">&times;</button>
+      </td>
+    </tr>`).join('');
+  }
+}
+
+function posPayload(){
+  return {
+    position: document.getElementById('p_position').value.trim(),
+    location: document.getElementById('p_location').value.trim(),
+    status: document.getElementById('p_status').value,
+    date_opened: document.getElementById('p_date_opened').value.trim(),
+    date_closed: document.getElementById('p_date_closed').value.trim(),
+    days: document.getElementById('p_days').value.trim(),
+    sf_applications: document.getElementById('p_sf_applications').value.trim(),
+    linkedin_views: document.getElementById('p_linkedin_views').value.trim(),
+    linkedin_applications: document.getElementById('p_linkedin_applications').value.trim(),
+    recruiter_experience: document.getElementById('p_recruiter_experience').value.trim(),
+    notes: document.getElementById('p_notes').value.trim(),
+  };
+}
+
+async function savePosition(){
+  const payload = posPayload();
+  if(!payload.position){document.getElementById('p_position').focus();return;}
+  if(posEditingId){
+    await fetch('/api/positions/'+posEditingId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    cancelPosEdit();
+  } else {
+    await fetch('/api/positions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    clearPosForm();
+  }
+  loadPositions();
+}
+
+function clearPosForm(){
+  ['p_position','p_location','p_date_opened','p_date_closed','p_days','p_sf_applications',
+   'p_linkedin_views','p_linkedin_applications','p_recruiter_experience','p_notes']
+   .forEach(id=>document.getElementById(id).value='');
+}
+
+function startPosEdit(p){
+  posEditingId = p.id;
+  document.getElementById('p_position').value = p.position || '';
+  document.getElementById('p_location').value = p.location || '';
+  document.getElementById('p_status').value = p.status || 'Open (Sourcing)';
+  document.getElementById('p_date_opened').value = p.date_opened || '';
+  document.getElementById('p_date_closed').value = p.date_closed || '';
+  document.getElementById('p_days').value = p.days || '';
+  document.getElementById('p_sf_applications').value = p.sf_applications || '';
+  document.getElementById('p_linkedin_views').value = p.linkedin_views || '';
+  document.getElementById('p_linkedin_applications').value = p.linkedin_applications || '';
+  document.getElementById('p_recruiter_experience').value = p.recruiter_experience || '';
+  document.getElementById('p_notes').value = p.notes || '';
+  document.getElementById('posEditingBanner').style.display = 'flex';
+  document.getElementById('posEditingName').textContent = p.position;
+  document.getElementById('posSaveBtn').textContent = 'Save Changes';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelPosEdit(){
+  posEditingId = null;
+  document.getElementById('posEditingBanner').style.display = 'none';
+  document.getElementById('posSaveBtn').textContent = 'Add Position';
+  clearPosForm();
+}
+async function delPosition(id){ await fetch('/api/positions/'+id,{method:'DELETE'}); loadPositions(); }
+async function seedPositions(){ await fetch('/api/seed_positions',{method:'POST'}); loadPositions(); }
+async function clearAllPositions(){ if(confirm('Remove all positions?')){ await fetch('/api/clear_positions',{method:'POST'}); loadPositions(); } }
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function qs(){
+  const p=new URLSearchParams();
+  const map={text:'q_text',role:'q_role',iso:'q_iso',min_exp:'q_min_exp',source:'q_source',linkedin_sourced:'q_linkedin_sourced',status:'q_status'};
+  for(const k in map){const val=document.getElementById(map[k]).value;if(val)p.set(k,val);}
+  return p.toString();
+}
+
+async function load(){
+  const res=await fetch('/api/candidates?'+qs());
+  const rows=await res.json();
+  const tb=document.getElementById('tbody');
+  if(rows.length===0){
+    tb.innerHTML=`<tr><td colspan="13" class="empty">No candidates match. Add one above or adjust filters.</td></tr>`;
+  } else {
+    tb.innerHTML=rows.map((c,n)=>`<tr>
+      <td class="mono">${n+1}</td>
+      <td><b>${esc(c.name)}</b></td>
+      <td>${esc(c.role)}</td>
+      <td>${esc(c.location)}</td>
+      <td class="mono">${esc(c.experience)}</td>
+      <td>${esc(c.certifications)}</td>
+      <td class="${c.iso_certified==='Yes'?'iso-y':'iso-n'}">${esc(c.iso_certified)}</td>
+      <td>${esc(c.source)}</td>
+      <td class="${c.linkedin_sourced==='Yes'?'iso-y':'iso-n'}">${esc(c.linkedin_sourced)}</td>
+      <td>${esc(c.stage)}</td>
+      <td>${pill(c.status)}</td>
+      <td>${esc(c.notes)}</td>
+      <td>
+        <button class="rowbtn edit" onclick='startEdit(${JSON.stringify(c)})' title="Edit">&#9998;</button>
+        <button class="rowbtn del" onclick="del(${c.id})" title="Remove">&times;</button>
+      </td>
+    </tr>`).join('');
+  }
+  document.getElementById('count').textContent=`Showing ${rows.length} candidate(s)`;
+  stats();
+}
+
+async function stats(){
+  const all=await (await fetch('/api/candidates')).json();
+  const iso=all.filter(c=>c.iso_certified==='Yes').length;
+  const joined=all.filter(c=>c.status==='Joined').length;
+  const proc=all.filter(c=>c.status==='In Process').length;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="n">${all.length}</div><div class="l">Total Candidates</div></div>
+    <div class="stat"><div class="n">${iso}</div><div class="l">ISO Certified</div></div>
+    <div class="stat"><div class="n">${joined}</div><div class="l">Joined</div></div>
+    <div class="stat"><div class="n">${proc}</div><div class="l">In Process</div></div>`;
+  renderCharts(all);
+}
+
+function renderCharts(all){
+  const statusCounts={};
+  const roleCounts={};
+  all.forEach(c=>{
+    statusCounts[c.status]=(statusCounts[c.status]||0)+1;
+    roleCounts[c.role]=(roleCounts[c.role]||0)+1;
+  });
+  const palette=['#005AA0','#1E7A34','#C0392B','#B7791F','#53565A','#8AB6D6'];
+
+  const sLabels=Object.keys(statusCounts), sData=Object.values(statusCounts);
+  const rLabels=Object.keys(roleCounts), rData=Object.values(roleCounts);
+
+  if(chartStatus) chartStatus.destroy();
+  if(chartRole) chartRole.destroy();
+
+  chartStatus=new Chart(document.getElementById('chartStatus'),{
+    type:'doughnut',
+    data:{labels:sLabels,datasets:[{data:sData,backgroundColor:palette}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11}}},title:{display:true,text:'By Status',font:{size:12}}}}
+  });
+  chartRole=new Chart(document.getElementById('chartRole'),{
+    type:'bar',
+    data:{labels:rLabels,datasets:[{data:rData,backgroundColor:'#005AA0'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},title:{display:true,text:'By Role',font:{size:12}}},
+      scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+}
+
+function pill(s){
+  const m={'Joined':'p-joined','In Process':'p-process','Rejected':'p-rej','Offer Declined':'p-rej','On Hold':'p-hold'};
+  return `<span class="pill ${m[s]||'p-process'}">${esc(s)}</span>`;
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function v(id){return document.getElementById(id).value.trim();}
+function setv(id,val){document.getElementById(id).value=val==null?'':val;}
+
+function formPayload(){
+  return {name:v('f_name'),role:v('f_role'),location:v('f_location'),experience:v('f_experience'),
+    certifications:v('f_certifications'),iso_certified:v('f_iso_certified'),source:v('f_source'),
+    linkedin_sourced:v('f_linkedin_sourced'),stage:v('f_stage'),status:v('f_status'),notes:v('f_notes')};
+}
+
+async function saveCandidate(){
+  const name=v('f_name');
+  if(!name){document.getElementById('f_name').focus();return;}
+  if(editingId){
+    await fetch('/api/candidates/'+editingId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(formPayload())});
+    cancelEdit();
+  } else {
+    await fetch('/api/candidates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(formPayload())});
+    clearForm();
+  }
+  load();
+}
+
+function clearForm(){['f_name','f_location','f_experience','f_certifications','f_notes'].forEach(id=>document.getElementById(id).value='');}
+
+function startEdit(c){
+  editingId=c.id;
+  setv('f_name',c.name); setv('f_role',c.role); setv('f_location',c.location);
+  setv('f_experience',c.experience); setv('f_certifications',c.certifications);
+  setv('f_iso_certified',c.iso_certified); setv('f_source',c.source);
+  setv('f_linkedin_sourced',c.linkedin_sourced); setv('f_stage',c.stage);
+  setv('f_status',c.status); setv('f_notes',c.notes);
+  document.getElementById('editingBanner').style.display='flex';
+  document.getElementById('editingName').textContent=c.name;
+  document.getElementById('saveBtn').textContent='Save Changes';
+  switchTab('standard');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelEdit(){
+  editingId=null;
+  document.getElementById('editingBanner').style.display='none';
+  document.getElementById('saveBtn').textContent='Add Candidate';
+  clearForm();
+}
+
+async function del(id){await fetch('/api/candidates/'+id,{method:'DELETE'});load();}
+async function seed(){await fetch('/api/seed',{method:'POST'});load();}
+async function clearAll(){if(confirm('Remove all candidates?')){await fetch('/api/clear',{method:'POST'});load();}}
+function exportExcel(){window.location='/export?'+qs();}
+
+async function parseNlp(){
+  const text=document.getElementById('nlp_text').value;
+  if(!text.trim())return;
+  const res=await fetch('/api/parse_nlp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+  const data=await res.json();
+  if(data.error){alert(data.error);return;}
+  nlpPreviewData=data;
+  renderPreview(data,'nlpPreviewWrap','nlp');
+}
+
+function handleFile(file){
+  if(!file)return;
+  const fd=new FormData();
+  fd.append('file',file);
+  fetch('/api/import_file',{method:'POST',body:fd})
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.error){alert(data.error);return;}
+      importPreviewData=data;
+      renderPreview(data,'importPreviewWrap','import');
+    });
+}
+
+function renderPreview(data,wrapId,kind){
+  const wrap=document.getElementById(wrapId);
+  if(!data.length){wrap.innerHTML='<div class="hint">No candidates parsed.</div>';return;}
+  const rowsHtml=data.map((c,i)=>`<tr>
+    <td>${i+1}</td><td>${esc(c.name)}</td><td>${esc(c.role)}</td><td>${esc(c.location)}</td>
+    <td>${esc(c.experience)}</td><td>${esc(c.certifications)}</td><td>${esc(c.iso_certified)}</td>
+    <td>${esc(c.source)}</td><td>${esc(c.linkedin_sourced)}</td><td>${esc(c.stage)}</td><td>${esc(c.status)}</td>
+    <td><button class="rowbtn del" onclick="removePreviewRow('${kind}',${i})" title="Remove">&times;</button></td>
+  </tr>`).join('');
+  wrap.innerHTML=`
+    <div class="hint" style="margin-top:16px"><b>Preview — review before confirming.</b> Remove any row that parsed incorrectly, then confirm to add the rest.</div>
+    <div class="table-scroll"><table class="preview-table">
+      <thead><tr><th>#</th><th>Name</th><th>Role</th><th>Loc</th><th>Exp</th><th>Certs</th><th>ISO</th><th>Source</th><th>LI</th><th>Stage</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div>
+    <div class="actions">
+      <button class="btn" onclick="confirmPreview('${kind}')">Confirm &amp; Add ${data.length} Candidate(s)</button>
+      <button class="btn btn-ghost" onclick="discardPreview('${kind}')">Discard</button>
+    </div>`;
+}
+
+function removePreviewRow(kind,idx){
+  const arr = kind==='nlp' ? nlpPreviewData : importPreviewData;
+  arr.splice(idx,1);
+  renderPreview(arr, kind==='nlp'?'nlpPreviewWrap':'importPreviewWrap', kind);
+}
+
+async function confirmPreview(kind){
+  const arr = kind==='nlp' ? nlpPreviewData : importPreviewData;
+  if(!arr.length)return;
+  await fetch('/api/bulk_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidates:arr})});
+  discardPreview(kind);
+  if(kind==='nlp') document.getElementById('nlp_text').value='';
+  if(kind==='import') document.getElementById('file_input').value='';
+  load();
+}
+function discardPreview(kind){
+  if(kind==='nlp'){nlpPreviewData=[];document.getElementById('nlpPreviewWrap').innerHTML='';}
+  else{importPreviewData=[];document.getElementById('importPreviewWrap').innerHTML='';}
+}
+
+load();
+loadPositions();
+</script>
+</body>
+</html>
