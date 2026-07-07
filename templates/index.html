@@ -82,6 +82,10 @@
     padding:8px 12px;font-size:13px;color:var(--tuv-blue-dark);margin-bottom:14px;display:flex;
     justify-content:space-between;align-items:center}
   .preview-table td,.preview-table th{font-size:12px;padding:6px}
+  .preview-input{width:100%;min-width:80px;border:1px solid var(--line);background:#fff;
+    padding:6px 8px;font-size:12px;font-family:inherit;border-radius:5px}
+  .preview-input:focus{outline:none;border-color:var(--tuv-blue);
+    box-shadow:0 0 0 2px rgba(0,90,160,.12)}
   .drop{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);
     font-size:13px;cursor:pointer}
   .drop:hover{border-color:var(--tuv-blue);background:var(--tuv-blue-light)}
@@ -121,27 +125,48 @@
 
   <div class="card">
     <h2>Positions</h2>
-    <div id="posEditingBanner" class="editing-banner" style="display:none">
-      <span>Editing: <b id="posEditingName"></b></span>
-      <button class="btn-ghost btn" style="padding:4px 10px;font-size:12px" onclick="cancelPosEdit()">Cancel</button>
+    <div class="tabs">
+      <div class="tab postab active" data-postab="standard" onclick="switchPosTab('standard')">Standard</div>
+      <div class="tab postab" data-postab="nlp" onclick="switchPosTab('nlp')">Natural Language</div>
     </div>
-    <div class="grid">
-      <div><label>Position / Role</label><input id="p_position" placeholder="e.g. QSA"></div>
-      <div><label>Location</label><input id="p_location" placeholder="City"></div>
-      <div><label>Status</label>
-        <select id="p_status"><option>Open (Sourcing)</option><option>Interviews in Progress</option><option>Yet to Join</option><option>Joined</option><option>On Hold</option><option>Closed – No Hire</option></select></div>
-      <div><label>Date Opened</label><input id="p_date_opened" placeholder="e.g. 10-Feb-2026 or Feb 2026"></div>
-      <div><label>Date Closed / DOJ</label><input id="p_date_closed" placeholder="e.g. 11-May-2026 or Open"></div>
-      <div><label>No. of Days</label><input id="p_days" placeholder="e.g. 77 or ~7 months"></div>
-      <div><label>SF Applications</label><input id="p_sf_applications" placeholder="e.g. 47"></div>
-      <div><label>LinkedIn Views</label><input id="p_linkedin_views" placeholder="e.g. 1483 or Not tracked"></div>
-      <div><label>LinkedIn Applications</label><input id="p_linkedin_applications" placeholder="e.g. 266 or N/A"></div>
-      <div><label>Recruiter Hiring Experience</label><input id="p_recruiter_experience" placeholder="e.g. Smooth"></div>
-      <div style="grid-column:1/-1"><label>Sourcing Notes / Suggestions</label><input id="p_notes" placeholder="Optional notes"></div>
+
+    <div class="tabpanel postabpanel active" id="pospanel-standard">
+      <div id="posEditingBanner" class="editing-banner" style="display:none">
+        <span>Editing: <b id="posEditingName"></b></span>
+        <button class="btn-ghost btn" style="padding:4px 10px;font-size:12px" onclick="cancelPosEdit()">Cancel</button>
+      </div>
+      <div class="grid">
+        <div><label>Position / Role</label><input id="p_position" placeholder="e.g. QSA"></div>
+        <div><label>Location</label><input id="p_location" placeholder="City"></div>
+        <div><label>Status</label>
+          <select id="p_status"><option>Open (Sourcing)</option><option>Interviews in Progress</option><option>Yet to Join</option><option>Joined</option><option>On Hold</option><option>Closed – No Hire</option></select></div>
+        <div><label>Date Opened</label><input id="p_date_opened" placeholder="e.g. 10-Feb-2026 or Feb 2026"></div>
+        <div><label>Date Closed / DOJ</label><input id="p_date_closed" placeholder="e.g. 11-May-2026 or Open"></div>
+        <div><label>No. of Days</label><input id="p_days" placeholder="e.g. 77 or ~7 months"></div>
+        <div><label>SF Applications</label><input id="p_sf_applications" placeholder="e.g. 47"></div>
+        <div><label>LinkedIn Views</label><input id="p_linkedin_views" placeholder="e.g. 1483 or Not tracked"></div>
+        <div><label>LinkedIn Applications</label><input id="p_linkedin_applications" placeholder="e.g. 266 or N/A"></div>
+        <div><label>Recruiter Hiring Experience</label><input id="p_recruiter_experience" placeholder="e.g. Smooth"></div>
+        <div style="grid-column:1/-1"><label>Sourcing Notes / Suggestions</label><input id="p_notes" placeholder="Optional notes"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="posSaveBtn" onclick="savePosition()">Add Position</button>
+        <button class="btn btn-ghost" onclick="clearPosForm()">Clear</button>
+      </div>
     </div>
-    <div class="actions">
-      <button class="btn" id="posSaveBtn" onclick="savePosition()">Add Position</button>
-      <button class="btn btn-ghost" onclick="clearPosForm()">Clear</button>
+
+    <div class="tabpanel postabpanel" id="pospanel-nlp">
+      <div class="hint">
+        Paste one position per line, in any order — e.g. <b>"QSA - Bangalore - open since 10-Feb-2026 - 24 SF applications - 1421 LinkedIn views - 123 LinkedIn applications - interviews in progress"</b>.
+        This is <b>rule-based parsing</b> (keyword/regex matching), not true AI understanding — always check the preview before confirming.
+      </div>
+      <textarea id="pos_nlp_text" rows="6" placeholder="Manager - Sales - Gurgaon - opened Oct 2025 - joined 11-May-2026 - 77 days - 47 SF applications - smooth
+QSA - Mumbai - 10-Feb-2026 - interviews in progress - 24 SF applications - 1421 LinkedIn views - 123 LinkedIn applications"></textarea>
+      <div class="actions">
+        <button class="btn" onclick="parsePosNlp()">Parse Text</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('pos_nlp_text').value=''">Clear</button>
+      </div>
+      <div id="posNlpPreviewWrap"></div>
     </div>
 
     <div class="table-scroll" style="margin-top:18px">
@@ -263,6 +288,7 @@ let editingId = null;
 let posEditingId = null;
 let nlpPreviewData = [];
 let importPreviewData = [];
+let posNlpPreviewData = [];
 let chartStatus, chartRole;
 let _confirmResolve = ()=>{};
 
@@ -375,9 +401,15 @@ async function seedPositions(){ await fetch('/api/seed_positions',{method:'POST'
 async function clearAllPositions(){ if(await confirmDialog('Remove all positions? This cannot be undone.')){ await fetch('/api/clear_positions',{method:'POST'}); loadPositions(); } }
 
 function switchTab(name){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
-  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab:not(.postab)').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.tabpanel:not(.postabpanel)').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
+}
+
+function switchPosTab(name){
+  document.querySelectorAll('.postab').forEach(t=>t.classList.toggle('active', t.dataset.postab===name));
+  document.querySelectorAll('.postabpanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pospanel-'+name).classList.add('active');
 }
 
 function qs(){
@@ -529,25 +561,44 @@ function handleFile(file){
     });
 }
 
+function previewInput(kind,i,field,value){
+  return `<input class="preview-input" value="${esc(value)}"
+    oninput="updatePreviewField('${kind}',${i},'${field}',this.value)">`;
+}
+
 function renderPreview(data,wrapId,kind){
   const wrap=document.getElementById(wrapId);
   if(!data.length){wrap.innerHTML='<div class="hint">No candidates parsed.</div>';return;}
   const rowsHtml=data.map((c,i)=>`<tr>
-    <td>${i+1}</td><td>${esc(c.name)}</td><td>${esc(c.role)}</td><td>${esc(c.location)}</td>
-    <td>${esc(c.experience)}</td><td>${esc(c.certifications)}</td><td>${esc(c.iso_certified)}</td>
-    <td>${esc(c.source)}</td><td>${esc(c.linkedin_sourced)}</td><td>${esc(c.stage)}</td><td>${esc(c.status)}</td>
+    <td>${i+1}</td>
+    <td>${previewInput(kind,i,'name',c.name)}</td>
+    <td>${previewInput(kind,i,'role',c.role)}</td>
+    <td>${previewInput(kind,i,'location',c.location)}</td>
+    <td>${previewInput(kind,i,'experience',c.experience)}</td>
+    <td>${previewInput(kind,i,'certifications',c.certifications)}</td>
+    <td>${previewInput(kind,i,'iso_certified',c.iso_certified)}</td>
+    <td>${previewInput(kind,i,'source',c.source)}</td>
+    <td>${previewInput(kind,i,'linkedin_sourced',c.linkedin_sourced)}</td>
+    <td>${previewInput(kind,i,'stage',c.stage)}</td>
+    <td>${previewInput(kind,i,'status',c.status)}</td>
+    <td>${previewInput(kind,i,'notes',c.notes)}</td>
     <td><button class="rowbtn del" onclick="removePreviewRow('${kind}',${i})" title="Remove">&times;</button></td>
   </tr>`).join('');
   wrap.innerHTML=`
-    <div class="hint" style="margin-top:16px"><b>Preview — review before confirming.</b> Remove any row that parsed incorrectly, then confirm to add the rest.</div>
+    <div class="hint" style="margin-top:16px"><b>Preview — review before confirming.</b> Edit any field that parsed incorrectly, remove rows you don't want, then confirm.</div>
     <div class="table-scroll"><table class="preview-table">
-      <thead><tr><th>#</th><th>Name</th><th>Role</th><th>Loc</th><th>Exp</th><th>Certs</th><th>ISO</th><th>Source</th><th>LI</th><th>Stage</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Name</th><th>Role</th><th>Loc</th><th>Exp</th><th>Certs</th><th>ISO</th><th>Source</th><th>LI</th><th>Stage</th><th>Status</th><th>Notes</th><th></th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table></div>
     <div class="actions">
       <button class="btn" onclick="confirmPreview('${kind}')">Confirm &amp; Add ${data.length} Candidate(s)</button>
       <button class="btn btn-ghost" onclick="discardPreview('${kind}')">Discard</button>
     </div>`;
+}
+
+function updatePreviewField(kind,idx,field,value){
+  const arr = kind==='nlp' ? nlpPreviewData : importPreviewData;
+  arr[idx][field]=value;
 }
 
 function removePreviewRow(kind,idx){
@@ -568,6 +619,73 @@ async function confirmPreview(kind){
 function discardPreview(kind){
   if(kind==='nlp'){nlpPreviewData=[];document.getElementById('nlpPreviewWrap').innerHTML='';}
   else{importPreviewData=[];document.getElementById('importPreviewWrap').innerHTML='';}
+}
+
+async function parsePosNlp(){
+  const text=document.getElementById('pos_nlp_text').value;
+  if(!text.trim())return;
+  const res=await fetch('/api/parse_position_nlp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+  const data=await res.json();
+  if(data.error){showInlineError('posNlpPreviewWrap',data.error);return;}
+  posNlpPreviewData=data;
+  renderPosPreview(data);
+}
+
+function posPreviewInput(i,field,value){
+  return `<input class="preview-input" value="${esc(value)}"
+    oninput="updatePosPreviewField(${i},'${field}',this.value)">`;
+}
+
+function renderPosPreview(data){
+  const wrap=document.getElementById('posNlpPreviewWrap');
+  if(!data.length){wrap.innerHTML='<div class="hint">No positions parsed.</div>';return;}
+  const rowsHtml=data.map((p,i)=>`<tr>
+    <td>${i+1}</td>
+    <td>${posPreviewInput(i,'position',p.position)}</td>
+    <td>${posPreviewInput(i,'location',p.location)}</td>
+    <td>${posPreviewInput(i,'status',p.status)}</td>
+    <td>${posPreviewInput(i,'date_opened',p.date_opened)}</td>
+    <td>${posPreviewInput(i,'date_closed',p.date_closed)}</td>
+    <td>${posPreviewInput(i,'days',p.days)}</td>
+    <td>${posPreviewInput(i,'sf_applications',p.sf_applications)}</td>
+    <td>${posPreviewInput(i,'linkedin_views',p.linkedin_views)}</td>
+    <td>${posPreviewInput(i,'linkedin_applications',p.linkedin_applications)}</td>
+    <td>${posPreviewInput(i,'recruiter_experience',p.recruiter_experience)}</td>
+    <td>${posPreviewInput(i,'notes',p.notes)}</td>
+    <td><button class="rowbtn del" onclick="removePosPreviewRow(${i})" title="Remove">&times;</button></td>
+  </tr>`).join('');
+  wrap.innerHTML=`
+    <div class="hint" style="margin-top:16px"><b>Preview — review before confirming.</b> Edit any field that parsed incorrectly, remove rows you don't want, then confirm.</div>
+    <div class="table-scroll"><table class="preview-table">
+      <thead><tr><th>#</th><th>Position</th><th>Loc</th><th>Status</th><th>Opened</th><th>Closed/DOJ</th>
+        <th>Days</th><th>SF</th><th>LI Views</th><th>LI Apps</th><th>Recruiter Exp.</th><th>Notes</th><th></th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div>
+    <div class="actions">
+      <button class="btn" onclick="confirmPosPreview()">Confirm &amp; Add ${data.length} Position(s)</button>
+      <button class="btn btn-ghost" onclick="discardPosPreview()">Discard</button>
+    </div>`;
+}
+
+function updatePosPreviewField(idx,field,value){
+  posNlpPreviewData[idx][field]=value;
+}
+
+function removePosPreviewRow(idx){
+  posNlpPreviewData.splice(idx,1);
+  renderPosPreview(posNlpPreviewData);
+}
+
+async function confirmPosPreview(){
+  if(!posNlpPreviewData.length)return;
+  await fetch('/api/bulk_add_positions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({positions:posNlpPreviewData})});
+  discardPosPreview();
+  document.getElementById('pos_nlp_text').value='';
+  loadPositions();
+}
+function discardPosPreview(){
+  posNlpPreviewData=[];
+  document.getElementById('posNlpPreviewWrap').innerHTML='';
 }
 
 load();

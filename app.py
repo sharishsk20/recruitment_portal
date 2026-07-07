@@ -17,6 +17,21 @@ TUV_BLUE = "005AA0"
 TUV_BLUE_DARK = "003A70"
 TUV_GREY = "53565A"
 
+# Status traffic-light colors — matches the web UI's --green/--amber/--red tokens
+STATUS_GREEN = ("DCFCE7", "1E7A34")   # Joined
+STATUS_AMBER = ("FEF3C7", "B7791F")   # In progress / on hold / pending
+STATUS_RED = ("FDE8E6", "C0392B")     # Rejected / declined / closed - no hire
+
+
+def _status_colors(status):
+    """Map a status string to a (fill_hex, font_hex) traffic-light pair."""
+    s = (status or "").strip().lower()
+    if "joined" in s:
+        return STATUS_GREEN
+    if "rejected" in s or "declin" in s or "no hire" in s:
+        return STATUS_RED
+    return STATUS_AMBER
+
 FIELDS = ["name", "role", "location", "experience", "certifications",
           "iso_certified", "source", "linkedin_sourced", "stage", "status", "notes"]
 
@@ -242,6 +257,106 @@ def parse_candidate_line(line):
 def parse_candidates_text(text):
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     return [parse_candidate_line(l) for l in lines]
+
+
+DATE_PATTERN = r'\d{1,2}-[A-Za-z]{3,9}-\d{2,4}|\d{1,2}/\d{1,2}/\d{2,4}|[A-Za-z]{3,9}\.?\s+\d{4}'
+
+
+def _empty_position():
+    return {"position": "", "location": "", "status": "Open (Sourcing)",
+            "date_opened": "", "date_closed": "", "days": "", "sf_applications": "",
+            "linkedin_views": "", "linkedin_applications": "", "recruiter_experience": "",
+            "notes": ""}
+
+
+def _num_near(keywords, line):
+    """Find a number that appears right before or after one of `keywords`."""
+    m = re.search(rf'(\d+)\s*(?:{keywords})', line, re.I)
+    if not m:
+        m = re.search(rf'(?:{keywords})\D{{0,15}}?(\d+)', line, re.I)
+    return m.group(1) if m else ""
+
+
+def parse_position_line(line):
+    """Extract structured position/tracker fields from one line of free text."""
+    result = _empty_position()
+    low = line.lower()
+
+    # Position / role title
+    for r in KNOWN_ROLES:
+        if r.lower() in low:
+            result["position"] = r
+            break
+    else:
+        if "inside sales" in low:
+            result["position"] = "Manager – Inside Sales"
+        elif "sales" in low:
+            result["position"] = "Manager – Sales"
+        elif re.search(r'\bqsa\b|lead auditor', low):
+            result["position"] = "QSA"
+        else:
+            chunks = [c.strip() for c in re.split(r'[-–—|,;]', line) if c.strip()]
+            result["position"] = chunks[0] if chunks else "Untitled Position"
+
+    # Location
+    for loc in KNOWN_LOCATIONS:
+        if re.search(r'\b' + re.escape(loc.lower()) + r'\b', low):
+            result["location"] = "Bangalore" if loc == "Bengaluru" else \
+                ("Gurgaon" if loc == "Gurugram" else ("Kochi" if loc == "Cochin" else loc))
+            break
+
+    # Status
+    if "yet to join" in low:
+        result["status"] = "Yet to Join"
+    elif "joined" in low:
+        result["status"] = "Joined"
+    elif "on hold" in low:
+        result["status"] = "On Hold"
+    elif "closed" in low or "no hire" in low:
+        result["status"] = "Closed – No Hire"
+    elif "interview" in low:
+        result["status"] = "Interviews in Progress"
+    else:
+        result["status"] = "Open (Sourcing)"
+
+    # Dates: first date found -> opened, second -> closed/DOJ. With only one
+    # date, assign to "closed" if it's next to a closing keyword, else "opened".
+    dates = re.findall(DATE_PATTERN, line, re.I)
+    if len(dates) >= 2:
+        result["date_opened"], result["date_closed"] = dates[0], dates[1]
+    elif len(dates) == 1:
+        if re.search(r'(closed|doj|joined|joining)\D{0,15}' + re.escape(dates[0]), line, re.I) \
+           or re.search(re.escape(dates[0]) + r'\D{0,15}(closed|doj|joined|joining)', line, re.I):
+            result["date_closed"] = dates[0]
+        else:
+            result["date_opened"] = dates[0]
+
+    # Days open (either "77 days" or "~7 months")
+    m = re.search(r'~?\s*\d+\s*(?:days?|months?)\b', line, re.I)
+    if m:
+        result["days"] = re.sub(r'\s+', ' ', m.group(0).strip())
+
+    # Applications / views
+    result["sf_applications"] = _num_near(r'sf applications?|successfactors applications?|sf', line)
+    result["linkedin_views"] = _num_near(r'linkedin views?|views? on linkedin', line)
+    result["linkedin_applications"] = _num_near(
+        r'linkedin applications?|linkedin apps?|applications? (?:on|via) linkedin', line)
+
+    # Recruiter hiring experience
+    if re.search(r'\bsmooth\b', low):
+        result["recruiter_experience"] = "Smooth"
+    elif re.search(r'challenging|difficult', low):
+        result["recruiter_experience"] = "Challenging"
+    elif re.search(r'delay', low):
+        result["recruiter_experience"] = "Delayed"
+
+    result["_raw"] = line
+    return result
+
+
+def parse_positions_text(text):
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    return [parse_position_line(l) for l in lines]
 
 
 @app.route("/")
@@ -493,6 +608,39 @@ def seed_positions():
     return jsonify({"ok": True})
 
 
+@app.route("/api/parse_position_nlp", methods=["POST"])
+def parse_position_nlp():
+    d = request.get_json(force=True)
+    text = d.get("text", "")
+    if not text.strip():
+        return jsonify({"error": "No text provided"}), 400
+    parsed = parse_positions_text(text)
+    return jsonify(parsed)
+
+
+@app.route("/api/bulk_add_positions", methods=["POST"])
+def bulk_add_positions():
+    d = request.get_json(force=True)
+    positions = d.get("positions", [])
+    added = 0
+    for p in positions:
+        position = (p.get("position") or "").strip()
+        if not position:
+            continue
+        db().execute(
+            """INSERT INTO positions
+            (position,location,status,date_opened,date_closed,days,sf_applications,
+             linkedin_views,linkedin_applications,recruiter_experience,notes)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (position, p.get("location", ""), p.get("status", "Open (Sourcing)"),
+             p.get("date_opened", ""), p.get("date_closed", ""), p.get("days", ""),
+             p.get("sf_applications", ""), p.get("linkedin_views", ""),
+             p.get("linkedin_applications", ""), p.get("recruiter_experience", ""), p.get("notes", "")))
+        added += 1
+    db().commit()
+    return jsonify({"ok": True, "added": added})
+
+
 @app.route("/api/clear_positions", methods=["POST"])
 def clear_positions():
     db().execute("DELETE FROM positions")
@@ -593,6 +741,10 @@ def build_hiring_tracker(ws, white, blue_fill, grey_fill, border, position_rows)
                                     vertical="center", wrap_text=(i in (2, 11, 12)))
             if n % 2 == 1:
                 c.fill = grey_fill
+            if i == 4:
+                fill_hex, font_hex = _status_colors(r["status"])
+                c.fill = PatternFill("solid", fgColor=fill_hex)
+                c.font = Font(name="Arial", size=10, bold=True, color=font_hex)
 
     if not position_rows:
         c = ws.cell(row=hr + 1, column=1, value="No positions added yet.")
@@ -664,6 +816,10 @@ def export_excel():
                                     vertical="center", wrap_text=(i in (6, 12)))
             if n % 2 == 0:
                 c.fill = grey_fill
+            if i == 11:
+                fill_hex, font_hex = _status_colors(r["status"])
+                c.fill = PatternFill("solid", fgColor=fill_hex)
+                c.font = Font(name="Arial", size=10, bold=True, color=font_hex)
 
     widths = [6, 22, 22, 12, 14, 26, 12, 12, 14, 18, 14, 28]
     from openpyxl.utils import get_column_letter
